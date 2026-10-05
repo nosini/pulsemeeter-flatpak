@@ -14,6 +14,8 @@
   software-center metadata.
 - `scripts/prepare-repository.sh`: signs a tested build for publishing.
 - `scripts/check-appstream.py`: checks the app's entry in an exported catalog.
+- `scripts/update-upstream.py`: checks upstream releases and updates the source
+  pin and software-center release metadata.
 
 A checkout of upstream in `pulsemeeter/` is ignored by Git. It is handy for
 reading the source and for making patches.
@@ -181,6 +183,36 @@ bus. The manifest allows that name with `--own-name`, and the launcher sets
 
 ## Updating Pulsemeeter
 
+The Flatpak workflow checks GitHub's latest stable Pulsemeeter release each
+day at 06:23 UTC. It ignores drafts, prereleases and versions no newer than
+the manifest's pin. If there is a new release, it resolves the tag to a
+commit, checks that the patches still apply, and updates the manifest and
+AppStream release entry. No SDK download or build runs when there is no update.
+
+The updated files go through the same build and catalog checks as a push.
+With `PUBLISH_FLATPAK=true`, a successful build is signed and published, then
+the workflow commits the tested source pin and metadata to `main`. Failed
+checks leave the published package and source pin unchanged; the next daily
+run retries. Without publishing enabled, a successful build still records
+the update and uploads the installable bundle.
+
+The recording job uses the built-in `GITHUB_TOKEN` with `contents: write`;
+no additional secret is needed. Repository rules must allow that bot to
+push to `main`. The bot's push does not trigger another build, since the
+same workflow has already built and, when enabled, published the update.
+
+To check immediately, run the **Flatpak** workflow on `main` with **Check for
+a new upstream stable release** selected. A normal manual run builds the
+current pin. You can also run `python3 scripts/update-upstream.py` locally
+to prepare the manifest and metadata changes without committing them.
+
+GitHub disables scheduled workflows in public repositories after 60 days
+without repository activity. Re-enable the workflow in Actions if this
+happens; a manual run can still check upstream immediately.
+
+Updates stop for manual review if upstream changes its dependency or build
+declarations, or if a patch no longer applies. To update manually:
+
 1. Change `tag` and `commit` of the `pulsemeeter` module's git source.
 2. Check that the patches still apply, in the upstream checkout:
    `git -C pulsemeeter checkout <tag> && git -C pulsemeeter apply --check ../flatpak/patches/*.patch`.
@@ -189,6 +221,10 @@ bus. The manifest allows that name with `--own-name`, and the launcher sets
 3. Add a `<release>` entry to the metainfo file.
 4. If `requirements.txt` upstream changed, update `flatpak/requirements.txt`.
    Leave out `pygobject`, which comes from the runtime.
+
+Run `python3 scripts/test-update-upstream.py` to test release detection,
+annotated tags, patch application and refusal of dependency changes using a
+temporary local upstream repository. These tests also run before each CI build.
 
 ## Updating the Python wheels
 
