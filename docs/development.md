@@ -14,6 +14,9 @@
   software-center metadata.
 - `scripts/prepare-repository.sh`: signs a tested build for publishing.
 - `scripts/check-appstream.py`: checks the app's entry in an exported catalog.
+- `scripts/test-installed.sh` and `scripts/check-installed.py`: install a local
+  build and check imports, translations and files against the Platform runtime.
+- `scripts/check-main.sh`: refuses publication when `main` has moved.
 - `scripts/update-upstream.py`: checks upstream releases and updates the source
   pin and software-center release metadata.
 
@@ -44,11 +47,26 @@ network connection.
 `flatpak remote-modify --user --disable eu.nosini.Pulsemeeter-origin`, or
 switch to the published remote as the README describes.
 
+To run the headless checks used by CI, build with `--repo=repo` as above,
+then run:
+
+```sh
+flatpak --user remote-add --if-not-exists --no-gpg-verify local-test "$PWD/repo"
+bash scripts/test-installed.sh
+```
+
+The script checks that `local-test` points to this checkout's `repo`, and
+refuses to replace an existing x86_64 stable user installation. It installs
+the app and its German Locale extension, then runs Python using `flatpak
+run`, so imports use the GNOME Platform runtime. No display or audio server
+is needed. The test installation and remote are left in place; uninstall
+the app and its Locale extension before repeating the checks.
+
 ## GitHub Actions
 
 `.github/workflows/flatpak.yml` builds the x86_64 package for pushes to
-`main`, pull requests and manual runs. It checks the installed files, checks
-the catalog entry software centers read, and uploads
+`main`, pull requests and manual runs. It checks the installed app against
+the Platform runtime, checks the catalog entry software centers read, and uploads
 `pulsemeeter-x86_64.flatpak` as an artifact. Install a downloaded artifact
 with `flatpak install --user pulsemeeter-x86_64.flatpak`. Bundles are
 unsigned and don't update; the published repository does.
@@ -65,7 +83,8 @@ workflow also publishes a signed Flatpak repository to GitHub Pages:
    public key embedded.
 3. A fresh test remote with GPG verification enabled pulls the signed
    catalog, so an unsigned catalog fails the run.
-4. The `deploy` job publishes the result.
+4. The `deploy` job checks that `main` still matches the build's source
+   commit immediately before publishing the result.
 
 The catalog refs are deleted before signing because `flatpak
 build-update-repo` reuses unchanged catalog commits, including the unsigned
@@ -192,8 +211,12 @@ AppStream release entry. No SDK download or build runs when there is no update.
 The updated files go through the same build and catalog checks as a push.
 With `PUBLISH_FLATPAK=true`, a successful build is signed and published, then
 the workflow commits the tested source pin and metadata to `main`. Failed
-checks leave the published package and source pin unchanged; the next daily
-run retries. Without publishing enabled, a successful build still records
+build or publication checks leave the published package and source pin
+unchanged; the next daily run retries. The workflow checks `main` before
+signing an update and again immediately before deployment. Deployment and
+recording the pin are separate operations: if `main` moves after the final
+check, the package can be published while the recording push is rejected.
+Without publishing enabled, a successful build still records
 the update and uploads the installable bundle.
 
 The recording job uses the built-in `GITHUB_TOKEN` with `contents: write`;
