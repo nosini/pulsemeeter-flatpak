@@ -12,6 +12,8 @@
   the app ID.
 - `flatpak/eu.nosini.Pulsemeeter.desktop` and `.metainfo.xml`: launcher and
   software-center metadata.
+- `scripts/prepare-repository.sh`: signs a tested build for publishing.
+- `scripts/check-appstream.py`: checks the app's entry in an exported catalog.
 
 A checkout of upstream in `pulsemeeter/` is ignored by Git. It is handy for
 reading the source and for making patches.
@@ -31,10 +33,87 @@ flatpak build-bundle --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakr
   repo pulsemeeter.flatpak eu.nosini.Pulsemeeter stable
 ```
 
-The GitHub Actions workflow (`.github/workflows/flatpak.yml`) builds the
-x86_64 package for every push and pull request, checks the installed files
-and uploads `pulsemeeter-x86_64.flatpak` as an artifact. Install a
-downloaded artifact with `flatpak install --user pulsemeeter-x86_64.flatpak`.
+The build downloads Pulsemeeter and its Python dependencies, so it needs a
+network connection.
+
+`flatpak-builder --install` leaves a local remote named
+`eu.nosini.Pulsemeeter-origin` behind. Once the build directories are gone,
+`flatpak update` warns that it can't reach it. Disable it with
+`flatpak remote-modify --user --disable eu.nosini.Pulsemeeter-origin`, or
+switch to the published remote as the README describes.
+
+## GitHub Actions
+
+`.github/workflows/flatpak.yml` builds the x86_64 package for pushes to
+`main`, pull requests and manual runs. It checks the installed files, checks
+the catalog entry software centers read, and uploads
+`pulsemeeter-x86_64.flatpak` as an artifact. Install a downloaded artifact
+with `flatpak install --user pulsemeeter-x86_64.flatpak`. Bundles are
+unsigned and don't update; the published repository does.
+
+### Publishing
+
+On `main`, when the repository variable `PUBLISH_FLATPAK` is `true`, the
+workflow also publishes a signed Flatpak repository to GitHub Pages:
+
+1. It imports the signing key from the `FLATPAK_GPG_PRIVATE_KEY` secret.
+2. `scripts/prepare-repository.sh` copies the tested repository, signs the
+   app ref, regenerates and signs the AppStream catalog and the summary, and
+   writes `pulsemeeter.flatpakrepo` and `pulsemeeter.flatpakref` with the
+   public key embedded.
+3. A fresh test remote with GPG verification enabled pulls the signed
+   catalog, so an unsigned catalog fails the run.
+4. The `deploy` job publishes the result.
+
+The catalog refs are deleted before signing because `flatpak
+build-update-repo` reuses unchanged catalog commits, including the unsigned
+ones from the test repository, without signing them.
+
+Each deployment contains only the latest build; old builds aren't kept for
+rollback. The repository URL defaults to
+`https://OWNER.github.io/REPOSITORY/`. For a custom domain, set the
+`FLATPAK_REPO_URL` variable to the real URL, including the trailing slash.
+
+To set publishing up:
+
+1. In **Settings → Pages**, select **GitHub Actions** as the source.
+2. Create a signing key and store it as the secret `FLATPAK_GPG_PRIVATE_KEY`
+   (see below).
+3. Set the variable: `gh variable set PUBLISH_FLATPAK --body true --repo nosini/pulsemeeter-flatpak`.
+4. Run the workflow on `main`, or push to it.
+
+### Signing key
+
+The key has to be an ASCII-armored GnuPG private key without a passphrase.
+Generate it on your own machine, outside the source checkout, in a separate
+GnuPG directory:
+
+```sh
+mkdir -p -m 700 "$HOME/.gnupg-pulsemeeter/private-keys-v1.d"
+gpgconf --homedir "$HOME/.gnupg-pulsemeeter" --create-socketdir
+gpg --homedir "$HOME/.gnupg-pulsemeeter" --batch --pinentry-mode loopback \
+  --passphrase '' --quick-generate-key 'Pulsemeeter Flatpak signing' ed25519 sign 0
+```
+
+Upload it through a private temporary file, so a failed export can't
+upload an empty secret:
+
+```sh
+(
+  set -eu
+  umask 077
+  key_file=$(mktemp "$HOME/.gnupg-pulsemeeter/export.XXXXXX")
+  trap 'rm -f "$key_file"' EXIT
+  gpg --homedir "$HOME/.gnupg-pulsemeeter" --armor \
+    --export-secret-keys 'Pulsemeeter Flatpak signing' > "$key_file"
+  test -s "$key_file"
+  gh secret set FLATPAK_GPG_PRIVATE_KEY --repo nosini/pulsemeeter-flatpak < "$key_file"
+)
+```
+
+Keep a backup of the key. Installed copies trust the public key from the
+`.flatpakref` they were installed with, so replacing the key breaks their
+updates.
 
 ## How the package works
 

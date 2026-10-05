@@ -16,30 +16,35 @@ original PulseAudio server.
 
 ## Installing
 
-There are no prebuilt downloads yet, so you build the package yourself. You
-need `flatpak` and `flatpak-builder`, and Flathub set up as a remote.
+Install [Flatpak](https://flatpak.org/setup/) if you don't already have it,
+then:
 
 ```sh
-git clone https://github.com/nosini/pulsemeeter-flatpak.git
-cd pulsemeeter-flatpak
-flatpak install --user flathub org.gnome.Platform//51 org.gnome.Sdk//51
-flatpak-builder --user --install --force-clean build-dir flatpak/eu.nosini.Pulsemeeter.yml
+flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+flatpak install --user https://nosini.github.io/pulsemeeter-flatpak/pulsemeeter.flatpakref
 ```
 
-The build downloads Pulsemeeter and its Python dependencies, so it needs a
-network connection. Afterwards you can delete `build-dir` and
-`.flatpak-builder`.
-
-`flatpak-builder --install` leaves a local remote named
-`eu.nosini.Pulsemeeter-origin` behind. Once the build directories are gone,
-`flatpak update` warns that it can't reach that remote. Disabling it silences
-the warning:
+This adds a remote named `pulsemeeter`. Updates come through it like any
+other Flatpak, from GNOME Software or with:
 
 ```sh
-flatpak remote-modify --user --disable eu.nosini.Pulsemeeter-origin
+flatpak update --user eu.nosini.Pulsemeeter
 ```
 
-To update, pull this repository and run the `flatpak-builder` command again.
+The package is built for x86_64.
+
+### Switching from a self-built install
+
+If you installed Pulsemeeter with `flatpak-builder --install`, move it to the
+published remote so it receives updates:
+
+```sh
+flatpak remote-add --user --if-not-exists pulsemeeter https://nosini.github.io/pulsemeeter-flatpak/pulsemeeter.flatpakrepo
+flatpak install --user --reinstall pulsemeeter eu.nosini.Pulsemeeter
+flatpak remote-delete --user eu.nosini.Pulsemeeter-origin
+```
+
+Your settings are kept, since they are stored outside the app.
 
 ## Using it
 
@@ -121,5 +126,5 @@ General Public License, version 3 (see [LICENSE](LICENSE)). Pulsemeeter
 itself is under the MIT license; see its
 [repository](https://github.com/theRealCarneiro/pulsemeeter).
 
-Building, updating dependencies and how the package works are described in
-[docs/development.md](docs/development.md).
+Building it yourself, publishing, and how the package works are described
+in [docs/development.md](docs/development.md).

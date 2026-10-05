@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: flatpak-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -16,6 +20,9 @@ jobs:
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-51
       # Bubblewrap needs namespaces unavailable in an ordinary Docker container.
       options: --privileged
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v7
         with:
@@ -45,6 +52,14 @@ jobs:
           test -s build-dir/export/share/icons/hicolor/128x128/apps/eu.nosini.Pulsemeeter.png
           test -s build-dir/export/share/applications/eu.nosini.Pulsemeeter.desktop
 
+      - name: Check software-center metadata
+        run: |
+          flatpak build-update-repo repo
+          flatpak --user remote-add --no-gpg-verify local-test "$PWD/repo"
+          flatpak --user update --appstream local-test
+          python3 scripts/check-appstream.py \
+            "${XDG_DATA_HOME:-$HOME/.local/share}/flatpak/appstream/local-test/x86_64/active"
+
       - name: Create installable bundle
         run: |
           flatpak build-bundle --arch=x86_64 \
@@ -56,3 +71,66 @@ jobs:
           name: pulsemeeter-x86_64
           path: pulsemeeter-x86_64.flatpak
           if-no-files-found: error
+
+      - name: Import signing key
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.PUBLISH_FLATPAK == 'true'
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.FLATPAK_GPG_PRIVATE_KEY }}
+        run: |
+          if [[ -z "$GPG_PRIVATE_KEY" ]]; then
+            echo 'Set FLATPAK_GPG_PRIVATE_KEY before enabling PUBLISH_FLATPAK.' >&2
+            exit 1
+          fi
+          export GNUPGHOME="$RUNNER_TEMP/pulsemeeter-gnupg"
+          mkdir -m 700 "$GNUPGHOME"
+          printf '%s\n' "$GPG_PRIVATE_KEY" | gpg --batch --import
+          key=$(gpg --batch --list-secret-keys --with-colons | awk -F: '$1 == "fpr" && !key { key = $10 } END { print key }')
+          test -n "$key"
+          echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
+          echo "GPG_KEY=$key" >> "$GITHUB_ENV"
+
+      - name: Sign and prepare update repository
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.PUBLISH_FLATPAK == 'true'
+        env:
+          REPO_URL: ${{ vars.FLATPAK_REPO_URL || format('https://{0}.github.io/{1}/', github.repository_owner, github.event.repository.name) }}
+        run: bash scripts/prepare-repository.sh
+
+      - name: Verify signed software catalog
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.PUBLISH_FLATPAK == 'true'
+        run: |
+          public_key_file="$RUNNER_TEMP/pulsemeeter-signing-public-key.gpg"
+          gpg --batch --export --export-options export-minimal "$GPG_KEY" > "$public_key_file"
+          test -s "$public_key_file"
+          flatpak --user remote-add --gpg-import="$public_key_file" signed-test "$PWD/signed-repo"
+          flatpak --user update --appstream signed-test
+          python3 scripts/check-appstream.py \
+            "${XDG_DATA_HOME:-$HOME/.local/share}/flatpak/appstream/signed-test/x86_64/active"
+          flatpak --user remote-delete signed-test
+          rm -f "$public_key_file"
+
+      - name: Remove imported key
+        if: always()
+        run: |
+          if [[ -d "$RUNNER_TEMP/pulsemeeter-gnupg" ]]; then
+            GNUPGHOME="$RUNNER_TEMP/pulsemeeter-gnupg" gpgconf --kill all || true
+            rm -rf "$RUNNER_TEMP/pulsemeeter-gnupg"
+          fi
+
+      - uses: actions/upload-pages-artifact@v5
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.PUBLISH_FLATPAK == 'true'
+        with:
+          path: signed-repo
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.PUBLISH_FLATPAK == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
