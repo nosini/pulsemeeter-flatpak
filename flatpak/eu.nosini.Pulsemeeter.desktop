@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Pulsemeeter
+GenericName=Audio Mixer
+Comment=Route audio between virtual and hardware devices
+Icon=eu.nosini.Pulsemeeter
+Exec=pulsemeeter
+Terminal=false
+StartupNotify=true
+StartupWMClass=org.pulsemeeter.pulsemeeter
+Categories=AudioVideo;Audio;Mixer;
+Keywords=PipeWire;PulseAudio;Voicemeeter;Routing;Virtual;Sink;Source;

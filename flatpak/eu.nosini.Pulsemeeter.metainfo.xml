@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>eu.nosini.Pulsemeeter</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Pulsemeeter</name>
+  <summary>Route audio between virtual and hardware devices</summary>
+  <developer id="io.github.therealcarneiro">
+    <name>Gabriel Carneiro</name>
+  </developer>
+  <description>
+    <p>
+      Pulsemeeter is a mixer for PipeWire with a workflow similar to
+      Voicemeeter. It creates virtual inputs and outputs and lets you route
+      any input to any output, whether the device is hardware or virtual.
+    </p>
+    <ul>
+      <li>Create virtual inputs and outputs</li>
+      <li>Route audio from input devices to output devices</li>
+      <li>Volume and mute control, with optional per-route volume</li>
+      <li>Channel layouts for virtual devices (mono, stereo and more)</li>
+      <li>Port selection for hardware devices</li>
+      <li>Custom port-to-port connection mapping</li>
+    </ul>
+    <p>
+      Pulsemeeter requires PipeWire with pipewire-pulse. This is an
+      unofficial Flatpak build of the upstream project.
+    </p>
+  </description>
+  <launchable type="desktop-id">eu.nosini.Pulsemeeter.desktop</launchable>
+  <url type="homepage">https://github.com/theRealCarneiro/pulsemeeter</url>
+  <url type="bugtracker">https://github.com/theRealCarneiro/pulsemeeter/issues</url>
+  <url type="help">https://github.com/theRealCarneiro/pulsemeeter/wiki/How-to-use</url>
+  <url type="translate">https://hosted.weblate.org/projects/pulsemeeter/pulsemeeter/</url>
+  <url type="vcs-browser">https://github.com/theRealCarneiro/pulsemeeter</url>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Virtual and hardware devices with their routes</caption>
+      <image>https://github.com/user-attachments/assets/19e06982-6c91-4c13-97c0-8b3b8ab173c5</image>
+    </screenshot>
+  </screenshots>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Audio</category>
+    <category>Mixer</category>
+  </categories>
+  <keywords>
+    <keyword>PipeWire</keyword>
+    <keyword>PulseAudio</keyword>
+    <keyword>Voicemeeter</keyword>
+    <keyword>routing</keyword>
+  </keywords>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="2.2.0" date="2026-07-25">
+      <description>
+        <ul>
+          <li>Welcome and help menu, and tooltips</li>
+          <li>Per-route volumes are hidden from system mixer menus</li>
+          <li>Device selector fixes</li>
+          <li>Spanish (Latin America) translation</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+</component>

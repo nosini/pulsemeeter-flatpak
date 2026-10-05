@@ -1,0 +1,8 @@
+# Upstream checkout used for reference and for making patches.
+/pulsemeeter/
+# flatpak-builder output
+/build-dir/
+/repo/
+/.flatpak-builder/
+*.flatpak
+__pycache__/

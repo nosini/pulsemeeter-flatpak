@@ -1,0 +1,58 @@
+name: Flatpak
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-51
+      # Bubblewrap needs namespaces unavailable in an ordinary Docker container.
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install SDK and runtime
+        run: |
+          flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install --noninteractive flathub org.gnome.Sdk//51 org.gnome.Platform//51
+
+      - name: Build
+        run: |
+          flatpak-builder --disable-rofiles-fuse --force-clean --arch=x86_64 \
+            --repo=repo build-dir flatpak/eu.nosini.Pulsemeeter.yml
+
+      - name: Check the installed files
+        run: |
+          test -x build-dir/files/bin/pulsemeeter
+          # Translations are found under /app (patched settings.py).
+          flatpak build --env=LANGUAGE=de_DE build-dir python3 -c \
+            'from pulsemeeter.settings import LOCALE_DIR; assert LOCALE_DIR == "/app/share/locale", LOCALE_DIR'
+          flatpak build build-dir python3 -c 'import pulsectl, pulsectl_asyncio, pydantic, gi; gi.require_version("Gtk", "4.0"); from gi.repository import Gtk'
+          test -z "$(find build-dir/files -ipath '*babel*' -print -quit)"
+          test -s build-dir/files/share/locale/de_DE/LC_MESSAGES/pulsemeeter.mo
+          test -s build-dir/files/share/pulsemeeter/pipewire/client.conf
+          test -s build-dir/files/share/pulsemeeter/pipewire/client.conf.d/50-manager.conf
+          test -s build-dir/export/share/icons/hicolor/128x128/apps/eu.nosini.Pulsemeeter.png
+          test -s build-dir/export/share/applications/eu.nosini.Pulsemeeter.desktop
+
+      - name: Create installable bundle
+        run: |
+          flatpak build-bundle --arch=x86_64 \
+            --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
+            repo pulsemeeter-x86_64.flatpak eu.nosini.Pulsemeeter stable
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pulsemeeter-x86_64
+          path: pulsemeeter-x86_64.flatpak
+          if-no-files-found: error

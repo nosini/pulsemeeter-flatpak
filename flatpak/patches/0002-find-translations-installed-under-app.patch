@@ -1,0 +1,12 @@
+diff --git a/src/pulsemeeter/settings.py b/src/pulsemeeter/settings.py
+index e38ac96..0e240e9 100644
+--- a/src/pulsemeeter/settings.py
++++ b/src/pulsemeeter/settings.py
+@@ -38,6 +38,7 @@ LOCALE_DIR = ''
+ LOCALE_DIRS = [
+     '/usr/share/locale',
+     '/usr/local/share/locale',
++    '/app/share/locale',  # Flatpak
+     os.path.join(APP_RUNTIME_DIR, "locale"),
+     os.path.join(XDG_DATA_HOME, "locale")
+ ]

@@ -1,0 +1,4 @@
+# Runtime dependencies of pulsemeeter. PyGObject comes from the GNOME runtime.
+pulsectl
+pulsectl-asyncio
+pydantic
