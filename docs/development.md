@@ -19,6 +19,11 @@
 - `scripts/test-installed.sh`: installs a local build with its German
   translations and runs those checks.
 - `scripts/prepare-repository.sh`: signs tested builds for publishing.
+- `scripts/update-upstream.sh`: proposes updates while keeping fixes on an
+  open update branch.
+- `scripts/filter-requirements.py`: evaluates dependency markers for the
+  runtime's Python and target architectures.
+- `scripts/tests/`: regression tests for the packaging scripts.
 - `scripts/builder-tools.sh`: fetches the pinned
   [flatpak-builder-tools](https://github.com/flatpak/flatpak-builder-tools).
 
@@ -80,6 +85,32 @@ remove the test installation with
 `flatpak --user uninstall eu.nosini.Pulsemeeter eu.nosini.Pulsemeeter.Locale`
 and the remote with `flatpak --user remote-delete local-test`.
 
+## Debugging
+
+A shell in the sandbox of the last build, without installing it:
+
+```sh
+flatpak run org.flatpak.Builder --run build-dir eu.nosini.Pulsemeeter.yml sh
+```
+
+A shell in the installed app's sandbox, with the SDK and its debugging tools
+in place of the Platform runtime (the SDK must be installed):
+
+```sh
+flatpak run --devel --command=sh eu.nosini.Pulsemeeter
+```
+
+To see which D-Bus names the app tries to reach, and so which `--talk-name`
+permissions it needs:
+
+```sh
+flatpak run --log-session-bus eu.nosini.Pulsemeeter 2>&1 | grep '(required 1)'
+```
+
+Permissions granted through portals, such as notifications or background
+running, are listed with `flatpak permission-show eu.nosini.Pulsemeeter` and
+cleared with `flatpak permission-reset eu.nosini.Pulsemeeter`.
+
 ## GitHub Actions
 
 `.github/workflows/flatpak.yml` runs for pushes to `main`, pull requests and
@@ -95,19 +126,36 @@ GitHub's Arm runners, which are free for public repositories only. To
 limit the architectures, add a `flathub.json`, for example
 `{"only-arches": ["x86_64"]}`.
 
+`.github/workflows/checks.yml` lints the scripts and workflows, checks that
+the manifest and metadata files parse, and runs the tests in
+`scripts/tests/`. The publishing test makes small fake builds and publishes
+them several times to a local web server.
+
 ### Publishing
 
 On `main`, when the repository variable `PUBLISH_FLATPAK` is `true`, the
 workflow also publishes a signed Flatpak repository to GitHub Pages. A
-separate job, which never runs upstream build code, combines the tested
-builds of all architectures, signs the app and extension refs, generates and
-signs the software catalog and summary, and writes `pulsemeeter.flatpakrepo`
-and `pulsemeeter.flatpakref` with the public key embedded. Before deploying,
-a fresh remote that only knows the public key must accept the result.
+separate job, which never runs upstream build code, downloads the published
+repository and checks it against the signing key. It adds the tested builds
+of all architectures as new signed commits, generates static deltas, signs a
+new software catalog and summary, and writes `pulsemeeter.flatpakrepo` and
+`pulsemeeter.flatpakref` with the public key embedded. Both files take the
+app's summary from its metainfo and point to a copy of its icon, which
+software centers show when the remote or app is added. Before deploying, a
+fresh remote that only knows the public key must accept the result.
 
-Each deployment contains only the latest build. The repository URL defaults
-to `https://OWNER.github.io/REPOSITORY/`. For a custom domain, set the
-`FLATPAK_REPO_URL` variable to the real URL, including the trailing slash.
+The repository keeps the five previous versions of the app and each
+extension, so users can go back to one with `flatpak update --commit`. A
+build whose files didn't change adds no version. Static deltas let Flatpak
+download an install or update as a few large files instead of one request
+per file. If the published repository can't be downloaded or doesn't match
+the signing key, for example after replacing the key, the job fails. Set the
+variable `FLATPAK_KEEP_HISTORY` to `false` to publish a new repository without
+the earlier versions.
+
+The repository URL defaults to `https://OWNER.github.io/REPOSITORY/`. For a
+custom domain, set the `FLATPAK_REPO_URL` variable to the real URL,
+including the trailing slash.
 
 To set publishing up:
 
@@ -180,6 +228,14 @@ To merge updates without review, set the variable `AUTO_MERGE_UPDATES` to
 the build and the installed-app checks pass, and starts the publishing build
 on `main`. A failed build leaves the pull request open.
 
+Changes pushed to `update/upstream` by anyone but the workflow are kept:
+while the pull request is open, later runs commit newer releases on top of
+them, comment on the pull request and leave it for review even with
+`AUTO_MERGE_UPDATES`. Once the pull request is closed or merged, the next
+update starts again from `main`. If someone pushes to the branch while the
+workflow runs, the run fails instead of replacing the branch; the next one
+picks the push up.
+
 GitHub disables scheduled workflows in public repositories after 60 days
 without activity. Re-enable the workflow under **Actions** if that happens.
 
@@ -209,11 +265,26 @@ It prefers pure-Python wheels. pydantic-core is compiled from Rust, so the
 script selects its prebuilt wheels for x86_64 and aarch64 instead, which
 needs `flatpak run`.
 
-The script works around two problems of the generator. It doesn't evaluate
-`python_version` markers on the listed requirements, so the script leaves out
-lines whose markers don't apply to the runtime's Python. And for the
-prebuilt wheels it imports `packaging` inside the SDK, which only has pip's
-copy, so the script runs a copy of the generator that imports that one.
+The script works around three problems of the generator. It doesn't
+evaluate markers on the listed requirements, so
+`scripts/filter-requirements.py` leaves out lines whose markers don't apply
+to the runtime's Python on Linux, for every architecture CI builds, and
+removes the markers of the lines it keeps, so pip doesn't evaluate them
+again for the machine it runs on. A requirement needed on only some
+architectures stops the script; add such a package as a module with
+`only-arches` instead. The generator also skips packages it expects from the
+SDK, including pip, wheel, Cython and Meson, which the Platform lacks, so
+the script tells it to bundle them when needed. An explicit requirement for
+packaging can be bundled too, although GNOME already provides it. And for
+the prebuilt wheels it imports `packaging` inside the SDK; the script uses
+pip's vendored copy, which also works with Freedesktop SDKs.
+
+Set `PREFER_WHEELS` to a comma-separated list to change which packages use
+native wheels; its default is `pydantic-core`. For requirements that don't
+need native wheels, set it to an empty string and set `PIP_GENERATOR_PYTHON`
+to an interpreter of the runtime's Python version, for example
+`PREFER_WHEELS='' PIP_GENERATOR_PYTHON=python3.14 bash scripts/generate-python-deps.sh`.
+This runs pip there without `flatpak run`.
 
 Babel is only needed while building, because `setup.py` compiles the
 translations. It is a module of its own in the manifest, which the update
@@ -222,8 +293,9 @@ check follows, and its `cleanup` removes it from the finished app.
 ## Moving to a newer runtime
 
 Change `runtime-version` in the manifest and the `gnome-51` image tags in
-`.github/workflows/flatpak.yml`. If the new runtime has a different Python
-version, regenerate the Python dependencies.
+`.github/workflows/flatpak.yml` and `.github/workflows/checks.yml`. If the
+new runtime has a different Python version, regenerate the Python
+dependencies.
 
 ## How the package works
 

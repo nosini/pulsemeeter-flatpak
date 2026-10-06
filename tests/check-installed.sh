@@ -1,3 +1,4 @@
+#!/bin/sh
 # Runs inside the installed app's sandbox (see scripts/test-installed.sh).
 # There is no display, sound server or session bus in CI, so keep these checks
 # headless: import modules, load the translations, look for files.
@@ -46,6 +47,7 @@ for tool in pw-cli pw-link pw-loopback pw-dump pw-metadata; do
   command -v "$tool" >/dev/null
 done
 
+test -s "/app/share/metainfo/$FLATPAK_ID.metainfo.xml"
 test -s "/app/share/applications/$FLATPAK_ID.desktop"
 test -s "/app/share/icons/hicolor/128x128/apps/$FLATPAK_ID.png"
 # The welcome window looks up the upstream icon name.

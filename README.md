@@ -31,6 +31,12 @@ other Flatpak, from your software center or with:
 flatpak update --user eu.nosini.Pulsemeeter
 ```
 
+The `pulsemeeter` remote keeps the five previous versions. To go back to one,
+find its commit with `flatpak remote-info --user --log pulsemeeter
+eu.nosini.Pulsemeeter`, then run
+`flatpak update --user --commit=COMMIT eu.nosini.Pulsemeeter`. The next
+normal update returns to the newest version.
+
 Pulsemeeter is also available from the shared
 [nosini remote](https://github.com/nosini/flatpak-repo), together with the
 other packages published there. The package is built for x86_64 and 64-bit
