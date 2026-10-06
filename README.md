@@ -25,13 +25,16 @@ flatpak install --user https://nosini.github.io/pulsemeeter-flatpak/pulsemeeter.
 ```
 
 This adds a remote named `pulsemeeter`. Updates come through it like any
-other Flatpak, from GNOME Software or with:
+other Flatpak, from your software center or with:
 
 ```sh
 flatpak update --user eu.nosini.Pulsemeeter
 ```
 
-The package is built for x86_64.
+Pulsemeeter is also available from the shared
+[nosini remote](https://github.com/nosini/flatpak-repo), together with the
+other packages published there. The package is built for x86_64 and 64-bit
+Arm (aarch64).
 
 ### Switching from a self-built install
 
@@ -106,6 +109,8 @@ NoDisplay=true
 Pulsemeeter manages the sound setup of the whole session, so the sandbox
 gives it full control over audio:
 
+- a window on your desktop, through Wayland or, where Wayland isn't
+  available, X11;
 - the PulseAudio socket and the native PipeWire socket. Pulsemeeter uses
   both, for volumes and default devices and for creating devices and links;
 - access to all devices (`--device=all`). pipewire-pulse only lets a
@@ -115,7 +120,9 @@ gives it full control over audio:
   show the icons of apps playing audio. Icons installed under `/usr/local`,
   which is where browser packages such as Brave's put theirs, aren't visible
   to Flatpak apps otherwise;
-- its own settings folder, `~/.config/pulsemeeter`.
+- its own settings folder, `~/.config/pulsemeeter`;
+- the name `org.pulsemeeter.pulsemeeter` on the session bus, which
+  Pulsemeeter registers so that a second start opens the running window.
 
 It has no network access and no access to your other files.
 

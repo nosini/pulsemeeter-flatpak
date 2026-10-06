@@ -1,3 +1,8 @@
+Find translations installed under /app
+
+Flatpak apps install into /app, which isn't among the folders searched for
+translations.
+
 diff --git a/src/pulsemeeter/settings.py b/src/pulsemeeter/settings.py
 index e38ac96..0e240e9 100644
 --- a/src/pulsemeeter/settings.py

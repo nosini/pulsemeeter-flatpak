@@ -1,3 +1,9 @@
+Detect pipewire-pulse by asking the PulseAudio server
+
+Pulsemeeter refuses to start unless a pipewire-pulse executable is on PATH.
+A Flatpak sandbox has no such binary, so ask the PulseAudio server for its
+name instead ("PulseAudio (on PipeWire x.y.z)").
+
 diff --git a/src/pulsemeeter/scripts/pmctl.py b/src/pulsemeeter/scripts/pmctl.py
 index 91269db..725cdaa 100644
 --- a/src/pulsemeeter/scripts/pmctl.py

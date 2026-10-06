@@ -54,6 +54,10 @@
     <control>pointing</control>
     <control>keyboard</control>
   </supports>
+  <branding>
+    <color type="primary" scheme_preference="light">#f3d54e</color>
+    <color type="primary" scheme_preference="dark">#4a3f12</color>
+  </branding>
   <content_rating type="oars-1.1"/>
   <releases>
     <release version="2.2.0" date="2026-07-25">

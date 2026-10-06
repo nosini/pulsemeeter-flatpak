@@ -1,0 +1,10 @@
+{
+  "eu.nosini.Pulsemeeter": {
+    "appid-url-not-reachable": "nosini.eu has no website yet; the linter requires https://nosini.eu to answer.",
+    "appstream-external-screenshot-url": "Self-hosted repository: screenshots stay at their upstream URLs instead of Flathub's media mirror.",
+    "appstream-screenshots-not-mirrored-in-ostree": "Self-hosted repository: no screenshots ref is published.",
+    "finish-args-unnecessary-xdg-config-pulsemeeter-create-access": "The host's ~/.config/pulsemeeter is shared on purpose, so a native install and the Flatpak use the same devices and routes.",
+    "finish-args-host-os-ro-filesystem-access": "Read-only, for the icons of apps playing audio that are installed under /usr/local/share/icons, which Flatpak can't expose on its own (patch 0003).",
+    "finish-args-own-name-org.pulsemeeter.pulsemeeter": "Pulsemeeter's GtkApplication registers this name, which differs from the Flatpak app ID."
+  }
+}

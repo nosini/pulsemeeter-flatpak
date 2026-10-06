@@ -1,3 +1,11 @@
+Find app icons installed on the host
+
+Inside a Flatpak sandbox GTK only searches the host's /usr/share/icons and
+~/.local/share/icons, but xdg-icon-resource installs icons into
+/usr/local/share/icons. With --filesystem=host-os the host's /usr is mounted
+at /run/host/usr; add its icon and pixmap folders to the icon theme's search
+path so streams show their apps' icons.
+
 diff --git a/src/pulsemeeter/clients/gtk/gtk_client.py b/src/pulsemeeter/clients/gtk/gtk_client.py
 index 5465bf4..b351b3e 100644
 --- a/src/pulsemeeter/clients/gtk/gtk_client.py

@@ -1,2 +1,0 @@
-# Needed only while building pulsemeeter (setup.py compiles translations).
-babel
