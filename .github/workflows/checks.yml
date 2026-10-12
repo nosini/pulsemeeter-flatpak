@@ -53,6 +53,9 @@ jobs:
       - name: Test the update script
         run: bash scripts/tests/test-update-upstream.sh
 
+      - name: Test release tag classification and creation
+        run: python scripts/tests/test-release-workflow.py
+
       - name: Test the Python dependency generator
         env:
           PIP_GENERATOR_PYTHON: python

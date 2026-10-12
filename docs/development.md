@@ -113,7 +113,7 @@ cleared with `flatpak permission-reset eu.nosini.Pulsemeeter`.
 
 ## GitHub Actions
 
-`.github/workflows/flatpak.yml` runs when a GitHub release is published,
+`.github/workflows/flatpak.yml` runs when a `v*` version tag is pushed,
 for pull requests and on manual runs. Pushes to `main` run the packaging
 checks without building the app. Release builds use the tagged commit.
 For each architecture, the workflow lints the manifest and metainfo,
@@ -135,16 +135,22 @@ them several times to a local web server.
 
 ### Publishing
 
-When the repository variable `PUBLISH_FLATPAK` is `true`, publishing a
-stable GitHub release builds and publishes a signed Flatpak repository to
+When the repository variable `PUBLISH_FLATPAK` is `true`, pushing a
+stable version tag builds and publishes a signed Flatpak repository to
 GitHub Pages. A manual Flatpak run on `main` also publishes, so packaging
 fixes can be shipped without a new upstream release. Pull request builds,
-prerelease builds and manual builds on other refs produce bundle artifacts
-without publishing. A separate job, which never runs upstream build code,
-downloads the published
-repository and checks it against the signing key. It adds the tested builds
-of all architectures as new signed commits, generates static deltas, signs a
-new software catalog and summary, and writes `pulsemeeter.flatpakrepo` and
+prerelease builds and manual builds on other branches produce bundle artifacts
+without publishing. After a tag build passes, the workflow creates its
+GitHub Release with the runner's `GITHUB_TOKEN` and attaches the tested
+bundles. For stable publication, it waits for the Pages deployment to
+succeed first. Rerunning a tag build replaces assets on the existing
+release. Manual runs on version tags can also create or update the release;
+manual runs on branches do not create releases.
+
+A separate job, which never runs upstream build code, downloads the
+published repository and checks it against the signing key. It adds the
+tested builds of all architectures as new signed commits, generates static
+deltas, signs a new software catalog and summary, and writes `pulsemeeter.flatpakrepo` and
 `pulsemeeter.flatpakref` with the public key embedded. Both files take the
 app's summary from its metainfo and point to a copy of its icon, which
 software centers show when the remote or app is added. Before deploying, a
@@ -170,14 +176,31 @@ To set publishing up:
    below).
 3. Set the variable:
    `gh variable set PUBLISH_FLATPAK --body true --repo nosini/pulsemeeter-flatpak`.
-4. Publish a GitHub release with a tag pointing to the commit to build,
+4. Push a version tag pointing to the commit to build,
    or run the Flatpak workflow manually on `main`.
 
+Stable tags have the form `v2.2.0`. A numeric suffix such as `v2.2.0-1`
+identifies a stable packaging revision of the same upstream version.
+Other suffixes, such as `v2.3.0-rc1`, create GitHub prereleases without
+replacing the stable Flatpak repository or becoming the latest stable
+GitHub Release. Tag the commit containing the intended package pins and
+workflow:
+
+```sh
+git tag -s v2.2.0 -m 'Pulsemeeter 2.2.0'
+git push origin v2.2.0
+```
+
 In **Settings → Environments → github-pages**, make sure the deployment
-rules allow release tags as well as `main`. If using **Selected branches
-and tags**, add a tag rule matching the release tags; a branch rule for
-`main` alone doesn't allow release deployments. GitHub documents these
+rules allow version tags as well as `main`. If using **Selected branches
+and tags**, retain a Branch rule for `main` and add a Tag rule for `v*`.
+A branch rule for `main` alone doesn't allow release deployments. GitHub
+documents these
 [deployment rules](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments#deployment-branches-and-tags).
+
+Release assets must remain mutable for reruns to replace them; GitHub's
+[immutable release setting](https://cli.github.com/manual/gh_release_create#immutable-releases)
+prevents asset updates.
 
 ### Signing key
 
@@ -230,7 +253,7 @@ for Babel, the newest wheel on PyPI. If anything is newer, it updates the
 pins and adds a release to the metainfo file, pushes the change to the
 `update/upstream` branch, opens a pull request and starts the Flatpak build
 of that branch. Its result shows on the pull request. After merging,
-publish a GitHub release at the merged commit to build and publish the
+push a version tag at the merged commit to build and publish the
 update. The new release entry only has a version and a date; add upstream's
 release notes on the update branch.
 
@@ -239,7 +262,7 @@ requests** under **Settings → Actions → General**.
 
 To merge updates without review, set the variable `AUTO_MERGE_UPDATES` to
 `true`. The workflow then waits for the build and merges the pull request
-when the build and the installed-app checks pass. Publish a GitHub release
+when the build and the installed-app checks pass. Push a version tag
 afterwards to ship it. A failed build leaves the pull request open.
 
 Changes pushed to `update/upstream` by anyone but the workflow are kept:
