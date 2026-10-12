@@ -1,8 +1,8 @@
 name: Flatpak
 
 on:
-  push:
-    branches: [main]
+  release:
+    types: [published]
   pull_request:
   workflow_dispatch:
 
@@ -37,7 +37,10 @@ jobs:
       - name: Select architectures
         id: arches
         env:
-          PUBLISH: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.PUBLISH_FLATPAK == 'true' }}
+          PUBLISH: >-
+            ${{ vars.PUBLISH_FLATPAK == 'true' &&
+                ((github.event_name == 'release' && !github.event.release.prerelease) ||
+                 (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) }}
         run: |
           config=$(cat flathub.json 2>/dev/null || echo '{}')
           matrix=$(jq -c '
