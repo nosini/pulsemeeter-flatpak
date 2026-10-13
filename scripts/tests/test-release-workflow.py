@@ -135,16 +135,20 @@ class ReleaseWorkflowTests(unittest.TestCase):
             ("false", "success", "success", "skipped", "skipped", True, "refs/tags/v2.3.0-rc1", False),
             ("true", "success", "success", "success", "success", False, "refs/heads/main", False),
         ):
-            with self.subTest(publish=publish, setup=setup, build=build, signing=signing,
-                              deploy=deploy, cancelled=cancelled, ref=ref):
-                needs = SimpleNamespace(
-                    setup=SimpleNamespace(result=setup, outputs=SimpleNamespace(publish=publish)),
-                    build=SimpleNamespace(result=build), publish=SimpleNamespace(result=signing),
-                    deploy=SimpleNamespace(result=deploy),
-                )
-                self.assertEqual(self.evaluate(expression, needs=needs,
-                                               github=SimpleNamespace(ref=ref),
-                                               cancelled=lambda: cancelled), expected)
+            for cache_only in (False, True):
+                with self.subTest(publish=publish, setup=setup, build=build, signing=signing,
+                                  deploy=deploy, cancelled=cancelled, ref=ref,
+                                  cache_only=cache_only):
+                    needs = SimpleNamespace(
+                        setup=SimpleNamespace(result=setup, outputs=SimpleNamespace(publish=publish)),
+                        build=SimpleNamespace(result=build), publish=SimpleNamespace(result=signing),
+                        deploy=SimpleNamespace(result=deploy),
+                    )
+                    self.assertEqual(self.evaluate(expression, needs=needs,
+                                                   github=SimpleNamespace(ref=ref),
+                                                   inputs=SimpleNamespace(cache_only=cache_only),
+                                                   cancelled=lambda: cancelled),
+                                     expected and not cache_only)
 
     def test_stable_publication_is_limited_to_stable_tags_and_manual_main(self):
         expression = next(step["env"]["PUBLISH"] for step in WORKFLOW["jobs"]["setup"]["steps"]
@@ -158,14 +162,18 @@ class ReleaseWorkflowTests(unittest.TestCase):
             ("pull_request", "refs/pull/1/merge", "", "true", False),
             ("workflow_dispatch", "refs/heads/main", "", "true", True),
             ("workflow_dispatch", "refs/heads/update/upstream", "", "true", False),
+            ("workflow_dispatch", "refs/tags/v2.2.0", "true", "true", True),
             ("workflow_dispatch", "refs/tags/v2.3.0-rc1", "false", "true", False),
         ):
-            with self.subTest(event=event, ref=ref, enabled=enabled):
-                self.assertEqual(self.evaluate(expression,
-                    vars=SimpleNamespace(PUBLISH_FLATPAK=enabled),
-                    github=SimpleNamespace(ref=ref, event_name=event),
-                    steps=SimpleNamespace(release=SimpleNamespace(outputs=SimpleNamespace(stable=stable))),
-                ), expected)
+            for cache_only in (False, True):
+                with self.subTest(event=event, ref=ref, enabled=enabled,
+                                  cache_only=cache_only):
+                    self.assertEqual(self.evaluate(expression,
+                        vars=SimpleNamespace(PUBLISH_FLATPAK=enabled),
+                        github=SimpleNamespace(ref=ref, event_name=event),
+                        inputs=SimpleNamespace(cache_only=cache_only),
+                        steps=SimpleNamespace(release=SimpleNamespace(outputs=SimpleNamespace(stable=stable))),
+                    ), expected and not cache_only)
 
 
 if __name__ == "__main__":

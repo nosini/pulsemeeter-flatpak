@@ -133,19 +133,47 @@ the manifest and metadata files parse, and runs the tests in
 `scripts/tests/`. The publishing test makes small fake builds and publishes
 them several times to a local web server.
 
+### Build cache
+
+CI restores `.flatpak-builder`, including downloaded sources, completed
+module results and the C/C++ compiler cache. Flatpak checks the inputs and
+rebuilds affected modules when sources, dependencies, patches or the SDK
+change. Lint and installed-app checks still run on every build, and the
+cache is saved only after they pass.
+
+Each run saves a fresh snapshot, separated by app ID, architecture, Flatpak
+branch and build workflow version, which includes the CI container image.
+The next run restores the newest compatible snapshot. To start a new cache
+namespace, bump `flatpak-v1` in both the key and restore prefix in the
+workflow. Cache misses build normally.
+
+GitHub lets tags and pull requests restore the default branch's cache,
+but caches from one tag cannot be restored by another tag. To populate a
+shared cache without publishing or creating a release, run the workflow
+on `main` with **cache_only** selected, or run this from the checkout:
+
+```sh
+gh workflow run flatpak.yml --ref main -f cache_only=true
+```
+
+Refresh it before releases when needed. GitHub removes caches unused for
+more than seven days and evicts older entries when the repository's storage
+limit is reached; see its [cache access and retention rules](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching).
+
 ### Publishing
 
 When the repository variable `PUBLISH_FLATPAK` is `true`, pushing a
 stable version tag builds and publishes a signed Flatpak repository to
-GitHub Pages. A manual Flatpak run on `main` also publishes, so packaging
-fixes can be shipped without a new upstream release. Pull request builds,
+GitHub Pages. A manual Flatpak run on `main` without **cache_only** also
+publishes, so packaging fixes can be shipped without a new upstream release. Pull request builds,
 prerelease builds and manual builds on other branches produce bundle artifacts
 without publishing. After a tag build passes, the workflow creates its
 GitHub Release with the runner's `GITHUB_TOKEN` and attaches the tested
 bundles. For stable publication, it waits for the Pages deployment to
 succeed first. Rerunning a tag build replaces assets on the existing
 release. Manual runs on version tags can also create or update the release;
-manual runs on branches do not create releases.
+manual runs on branches do not create releases. Runs with **cache_only**
+skip publishing and release creation on every ref.
 
 A separate job, which never runs upstream build code, downloads the
 published repository and checks it against the signing key. It adds the
