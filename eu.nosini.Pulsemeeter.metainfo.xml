@@ -31,7 +31,8 @@
   <url type="homepage">https://github.com/theRealCarneiro/pulsemeeter</url>
   <url type="bugtracker">https://github.com/theRealCarneiro/pulsemeeter/issues</url>
   <url type="help">https://github.com/theRealCarneiro/pulsemeeter/wiki/How-to-use</url>
-  <url type="translate">https://hosted.weblate.org/projects/pulsemeeter/pulsemeeter/</url>
+  <!-- No translate URL: Hosted Weblate answers non-browser clients with a
+       proof-of-work challenge (403), which fails the linter's URL check. -->
   <url type="vcs-browser">https://github.com/theRealCarneiro/pulsemeeter</url>
   <screenshots>
     <screenshot type="default">
