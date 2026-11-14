@@ -7,6 +7,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from packaging.requirements import Requirement
+
 SCRIPT = Path(__file__).resolve().parents[1] / "filter-requirements.py"
 
 
@@ -29,6 +31,21 @@ class FilterRequirementsTest(unittest.TestCase):
         result, kept = self.run_filter(lines)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(kept, lines)
+
+    def test_hash_fragments_are_kept(self):
+        url = "pkg @ https://host/pkg-1.0.tar.gz#sha256=0123"
+        result, kept = self.run_filter([
+            f'{url} ; python_version >= "3.11"',
+            "other==1.0  # pinned by hand",
+        ])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        # packaging versions differ in the spacing around `@`, so compare the
+        # parsed requirement rather than the text.
+        requirement = Requirement(kept[0])
+        self.assertEqual(requirement.name, "pkg")
+        self.assertEqual(requirement.url, "https://host/pkg-1.0.tar.gz#sha256=0123")
+        self.assertIsNone(requirement.marker)
+        self.assertEqual(kept[1:], ["other==1.0  # pinned by hand"])
 
     def test_python_version_markers_use_the_runtime(self):
         result, kept = self.run_filter([
